@@ -1,163 +1,132 @@
-$(function () {
-  let loadFlag = false
-  const openSearch = function () {
-    $('body').css({
-      width: '100%',
-      overflow: 'hidden'
-    })
-    $('#local-search').css('display', 'block')
-    $('#local-search-input input').focus()
-    $('#search-mask').fadeIn()
-    if (!loadFlag) {
-      search(GLOBAL_CONFIG.localSearch.path)
-      loadFlag = true
-    }
+// '<div id="no-result"><svg class="icon"><use xlink:href="#icon-search-line"></use></svg></div>';
+// } else if (resultItems.length === 0) {
+// resultContent.innerHTML =
+// '<div id="no-result"><svg class="icon"><use xlink:href="#icon-emotion-unhappy-line"></use></svg></div>';
+//- local-search
 
-    // shortcut: ESC
-    document.addEventListener('keydown', function f (event) {
-      if (event.code === 'Escape') {
-        closeSearch()
-        document.removeEventListener('keydown', f)
-      }
-    })
-  }
-
-  const closeSearch = function () {
-    $('body').css({
-      width: '',
-      overflow: ''
-    })
-    $('#local-search').css({
-      animation: 'search_close .5s'
-    })
-
-    setTimeout(function () {
-      $('#local-search').css({
-        animation: '',
-        display: 'none'
-      })
-    }, 500)
-
-    $('#search-mask').fadeOut()
-  }
-
-  const searchClickFn = () => {
-    $('a.social-icon.search').on('click', openSearch)
-    $('#search-mask, .search-close-button').on('click', closeSearch)
-  }
-
-  searchClickFn()
-  window.addEventListener('pjax:success', function () {
-    $('#local-search').is(':visible') && closeSearch()
-    searchClickFn()
-  })
-
-  function search (path) {
-    $.ajax({
-      url: GLOBAL_CONFIG.root + path,
-      dataType: 'xml',
-      success: function (xmlResponse) {
-        // get the contents from search data
-        const datas = $('entry', xmlResponse).map(function () {
-          return {
-            title: $('title', this).text(),
-            content: $('content', this).text(),
-            url: $('url', this).text()
-          }
-        }).get()
-
-        const $input = $('#local-search-input input')[0]
-        const $resultContent = $('#local-hits')[0]
-        $input.addEventListener('input', function () {
-          let str = '<div class="search-result-list">'
-          const keywords = this.value.trim().toLowerCase().split(/[\s]+/)
-          $resultContent.innerHTML = ''
+let searchFunc = function(path, search_id, content_id) {
+  "use strict";
+  const req = new Request(path);
+  let xhr = new XMLHttpRequest();
+  xhr.open("GET", path);
+  xhr.responseType = "document";
+  xhr.overrideMimeType("text/xml");
+  xhr.onload = function() {
+    if (xhr.readyState === xhr.DONE && xhr.status === 200) {
+      let xml = xhr.responseXML;
+      let datas = [];
+      xml.querySelectorAll("entry").forEach((entry) => {
+        datas.push({
+          title: entry.querySelector("title").innerHTML,
+          content: entry.querySelector("content").innerHTML,
+          url: entry.querySelector("url").innerHTML,
+        });
+      });
+      let $input = document.getElementById(search_id);
+      if (!$input) return;
+      let $resultContent = document.getElementById(content_id);
+      if (document.querySelectorAll("#local-search-input").length > 0) {
+        $input.addEventListener("input", function() {
+          let str = '<ul class="search-result-list">';
+          let keywords = this.value;
+          keywords = keywords
+            .trim()
+            .toLowerCase()
+            .split(/[\s\-]+/);
+          $resultContent.innerHTML = "";
           if (this.value.trim().length <= 0) {
-            $('.local-search-stats__hr').hide()
-            return
+            return;
           }
-          let count = 0
           // perform local searching
-          datas.forEach(function (data) {
-            let isMatch = true
-            if (!data.title || data.title.trim() === '') {
-              data.title = 'Untitled'
+          datas.forEach(function(data) {
+            let isMatch = true;
+            let content_index = [];
+            if (!data.title || data.title.trim() === "") {
+              data.title = "Untitled";
             }
-            let dataTitle = data.title.trim().toLowerCase()
-            const dataContent = data.content.trim().replace(/<[^>]+>/g, '').toLowerCase()
-            const dataUrl = data.url
-            let indexTitle = -1
-            let indexContent = -1
-            let firstOccur = -1
-            // only match artiles with not empty titles and contents
-            if (dataTitle !== '' || dataContent !== '') {
-              keywords.forEach(function (keyword, i) {
-                indexTitle = dataTitle.indexOf(keyword)
-                indexContent = dataContent.indexOf(keyword)
-                if (indexTitle < 0 && indexContent < 0) {
-                  isMatch = false
+            let data_title = data.title.trim().toLowerCase();
+            let data_content = data.content
+              .trim()
+              .replace(/<[^>]+>/g, "")
+              .toLowerCase();
+            let data_url = data.url;
+            let index_title = -1;
+            let index_content = -1;
+            let first_occur = -1;
+            // only match artiles with not empty contents
+            if (data_content !== "") {
+              keywords.forEach(function(keyword, i) {
+                index_title = data_title.indexOf(keyword);
+                index_content = data_content.indexOf(keyword);
+
+                if (index_title < 0 && index_content < 0) {
+                  isMatch = false;
                 } else {
-                  if (indexContent < 0) {
-                    indexContent = 0
+                  if (index_content < 0) {
+                    index_content = 0;
                   }
                   if (i === 0) {
-                    firstOccur = indexContent
+                    first_occur = index_content;
                   }
+                  // content_index.push({index_content:index_content, keyword_len:keyword_len});
                 }
-              })
+              });
             } else {
-              isMatch = false
+              isMatch = false;
             }
-
             // show search results
             if (isMatch) {
-              const content = data.content.trim().replace(/<[^>]+>/g, '')
-              if (firstOccur >= 0) {
-                // cut out 130 characters
-                let start = firstOccur - 30
-                let end = firstOccur + 100
+              str +=
+                "<li><a href='" +
+                data_url +
+                "' class='search-result-title'>" +
+                data_title +
+                "</a>";
+              let content = data.content.trim().replace(/<[^>]+>/g, "");
+              if (first_occur >= 0) {
+                // cut out 100 characters
+                let start = first_occur - 20;
+                let end = first_occur + 80;
 
                 if (start < 0) {
-                  start = 0
+                  start = 0;
                 }
 
                 if (start === 0) {
-                  end = 100
+                  end = 100;
                 }
 
                 if (end > content.length) {
-                  end = content.length
+                  end = content.length;
                 }
 
-                let matchContent = content.substring(start, end)
+                let match_content = content.substring(start, end);
 
                 // highlight all keywords
-                keywords.forEach(function (keyword) {
-                  const regS = new RegExp(keyword, 'gi')
-                  matchContent = matchContent.replace(regS, '<span class="search-keyword">' + keyword + '</span>')
-                  dataTitle = dataTitle.replace(regS, '<span class="search-keyword">' + keyword + '</span>')
-                })
+                keywords.forEach(function(keyword) {
+                  let regS = new RegExp(keyword, "gi");
+                  match_content = match_content.replace(
+                    regS,
+                    '<em class="search-keyword">' + keyword + "</em>"
+                  );
+                });
 
-                str += '<div class="local-search__hit-item"><a href="' + dataUrl + '" class="search-result-title">' + dataTitle + '</a>'
-                count += 1
-                $('.local-search-stats__hr').show()
-
-                if (dataContent !== '') {
-                  str += '<p class="search-result">' + matchContent + '...</p>'
-                }
+                str += '<p class="search-result">' + match_content + "...</p>";
               }
-              str += '</div>'
+              str += "</li>";
             }
-          })
-          if (count === 0) {
-            str += '<div id="local-search__hits-empty">' + GLOBAL_CONFIG.localSearch.languages.hits_empty.replace(/\$\{query}/, this.value.trim()) +
-              '</div>'
-          }
-          str += '</div>'
-          $resultContent.innerHTML = str
-          window.pjax && window.pjax.refresh($resultContent)
-        })
+          });
+          str += "</ul>";
+          $resultContent.innerHTML = str;
+        });
       }
-    })
-  }
-})
+    }
+  };
+  xhr.send();
+};
+
+searchFunc(
+  CONFIG.local_search.path,
+  "local-search-input",
+  "local-search-result"
+);
