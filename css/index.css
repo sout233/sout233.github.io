@@ -281,7 +281,7 @@ input::placeholder {
   z-index: -999;
   width: 100%;
   height: 100%;
-  background: '';
+  background: url("https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1601570239669&di=c9b4c48e44218e20b45004a8f6d71b23&imgtype=0&src=http%3A%2F%2Fb-ssl.duitang.com%2Fuploads%2Fitem%2F201807%2F28%2F20180728230633_VQVmd.jpeg");
   background-attachment: local;
   background-position: center;
   -webkit-background-size: cover;
